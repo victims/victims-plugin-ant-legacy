@@ -19,6 +19,7 @@ public class VictimsTaskTest {
 		Path path = new Path(project, "/this/path");
 		vt.setPath(path);
 		Path sources = vt.createUnifiedSourcePath();
+		vt.setUrl("https://victims-websec.rhcloud.com/service/v1");
 		vt.execute();
 		for (Resource r : sources){
 			FileResource fr = ResourceUtils.asFileResource(r
