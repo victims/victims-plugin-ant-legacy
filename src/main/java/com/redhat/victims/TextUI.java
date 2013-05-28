@@ -26,7 +26,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
-import org.apache.maven.plugin.logging.Log;
 
 /**
  * A collection of miscellaneous utilities used throughout the plug-in to format
@@ -188,7 +187,7 @@ public final class TextUI {
    * @param mode The mode which determines which log method is invoked.
    * @param msg The message to send to the log.
    */
-  public static void report(final Log l, final String mode, final String msg) {
+  public static void report(final String mode, final String msg) {
 
     String level;
     if (mode.equals(Settings.MODE_FATAL)) {
