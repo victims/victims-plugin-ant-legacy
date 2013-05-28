@@ -2,17 +2,13 @@ package com.redhat.victims;
 
 import java.io.File;
 import java.util.Vector;
-import com.redhat.victims.fingerprint.Fingerprint;
-//import com.redhat.victims.fingerprint.*;
-import com.redhat.victims.synchronizer.*;
-/*
-import com.redhat.victims.commands.Command;
-import com.redhat.victims.commands.ExecutionContext;
-import com.redhat.victims.commands.FingerprintCommand;
-import com.redhat.victims.commands.MetadataCommand;
-*/
-import com.redhat.victims.database.Database;
-import com.redhat.victims.VictimsScanner;
+import com.redhat.victims.database.VictimsDB;
+import com.redhat.victims.database.VictimsDBInterface;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.ArrayList;
+import java.util.Set;
+
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.types.Path;
@@ -25,80 +21,111 @@ import org.apache.tools.ant.DefaultLogger;
 
 //import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
 
-
 /**
- * @author kurt with credit to apache for code taken from
- *         org.apache.tools.ant.taskdefs.SignJar for.
+ * @author kgreav
  */
 public class VictimsTask extends Task {
 
 	protected File jar;
 
+	/*
+	 * Default options for Ant Task
+	 */
+	private String METADATA_DEFAULT = "warning";
+	private String FINGERPRINT_DEFAULT = "fatal";
+	private String UPDATES_DEFAULT = "auto";
+	private String DRIVER_DEFAULT = "org.h2.Driver";
+	private String JDBC_URL_DEFAULT = ".victims";
+	private String USER_DEFAULT = "";
+	private String PASS_DEFAULT = "";
+	private String BASE_URL_DEFAULT = "https://victi.ms";
+	private String ENTRY_DEFAULT = "/service";
+	
 	protected Vector<FileSet> filesets = new Vector<FileSet>();
 	private Path path;
-	private String url;
-	private String metadata;
-	private String fingerprint;
-	private String dbdriver;
-	private String dburl;
-	private String updates;
-	private String tolerance;
+	private String metadata = METADATA_DEFAULT;
+	private String fingerprint = FINGERPRINT_DEFAULT;
+	private String jdbcDriver = DRIVER_DEFAULT;
+	private String jdbcUrl = JDBC_URL_DEFAULT;
+	private String jdbcUser = USER_DEFAULT;
+	private String jdbcPass = PASS_DEFAULT;
+	private String updates = UPDATES_DEFAULT;
+	private String entryPoint = ENTRY_DEFAULT;
+	private String baseUrl = BASE_URL_DEFAULT;
+	
+	// private String tolerance = Settings.defaults.get(Settings.TOLERANCE);
 
-	//private Command[] commands = { new MetadataCommand(),
-	//		new FingerprintCommand() };
+
 
 	public VictimsTask() {
 	}
 
-	/**
-	 * Interface into task, executed after all setXXX, createXXX methods.
-	 */
-	public void execute() throws BuildException {
-	//	String message = getProject().getProperty("ant.project.name");
-	//	log("Project: " + message);
-		
-		try {
-            Settings setup = new Settings();
-            setup.set(Settings.URL, url);
-            setup.set(Settings.METADATA, metadata);
-            setup.set(Settings.FINGERPRINT, fingerprint);
-            setup.set(Settings.UPDATE_DATABASE, updates);
-            setup.set(Settings.DATABASE_DRIVER, dbdriver);
-            setup.set(Settings.DATABASE_URL, dburl);
-            setup.set(Settings.TOLERANCE, tolerance);
-            setup.validate();
-            
-            // Create database instance
-            Database db = new Database(dbdriver, dburl);
-            
-            if(setup.updatesEnabled()){
-            	Synchronizer sync = new Synchronizer(setup.get(Settings.URL));
-            	sync.synchronizeDatabase(db);
-            }
-            
-    		Path sources = createUnifiedSourcePath();
-    		log("\n");
-    		System.out.println("Resources: ");
-    		for(Resource r : sources){
-    			System.out.println(r.getName());
-    			
-    		}
-    		VictimsScanner.scan(sources.toString(), System.out);
-/*   		for (Resource r : sources) {
-    			FileResource fr = ResourceUtils.asFileResource(r
-    					.as(FileProvider.class));
-    			File file = fr.getFile();
+	private void vulnerabilityDetected(String cve) throws VictimsException {
 
-    			log("\t" + file.getAbsolutePath());
-    		}
-*/
-            
-		} catch (Exception e){
-			System.out.println("exception");
+		// Report finding
+		String logMsg = TextUI.fmt(Resources.INFO_VULNERABLE_DEPENDENCY, ctx
+				.getArtifact().getArtifactId(), ctx.getArtifact().getVersion(),
+				cve.trim());
+
+		TextUI.report(ctx.getLog(), ctx.getAction(), logMsg);
+
+		// Fail if in fatal mode
+		StringBuilder errMsg = new StringBuilder();
+		errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)))
+				.append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cve));
+
+		if (ctx.getSettings().inFatalMode(ctx.getAction())) {
+			throw new VictimsException(errMsg.toString());
 		}
 
+	}
 
-//		log("Included files:\n");
+	/**
+	 * Interface into task, executed after all setXXX, createXXX methods.
+	 * Creates and synchronises database then checks supplied
+	 * dependencies against the vulnerability database.
+	 */
+	public void execute() throws BuildException {
+		try {
+			//Create DB instance and sync
+			VictimsDBInterface db = VictimsDB.db();
+
+			//Find all files under supplied path
+			Path sources = createUnifiedSourcePath();
+			ArrayList<File> files = new ArrayList<File>();
+			log("Resources: ");
+			for (Resource r : sources) {
+				boolean alreadyReported = false;
+				
+				//Grab the file
+				FileResource fr = ResourceUtils.asFileResource(
+						r.as(FileProvider.class));
+				File jar = fr.getFile();
+				files.add(jar);
+				String dependency = jar.getAbsolutePath();
+				//Create the VictimsRecord
+				for (VictimsRecord vr : VictimsScanner.getRecords(dependency)) {
+					//Do the scanning
+					for (String cve : db.getVulnerabilities(vr)) {
+						//Found something? Report it!
+						vulnerabilityDetected(cve);
+					}
+				}
+
+				if (!alreadyReported && metadata.equals(Settings.METADATA)) {
+					
+					/*
+					for (String cve : db.getVulnerabilities(gav)) {
+						vulnerabilityDetected(ctx, cve);
+					}
+					*/
+				}
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	/**
@@ -110,6 +137,88 @@ public class VictimsTask extends Task {
 	public void setJar(final File jar) {
 		this.jar = jar;
 	}
+
+	/**
+	 * Set base URL of database. Default is https://victi.ms
+	 * @param baseUrl base URL of database
+	 */
+	public void setbaseUrl(String baseUrl) {
+		this.baseUrl = baseUrl;
+	}
+
+	/**
+	 * Set REST entry point into database. default is /service
+	 * @param entrypoint entry point path
+	 */
+	public void entryPoint(String entrypoint){
+		this.entryPoint = entrypoint;
+	}
+	
+	/**
+	 * Set metadata mode. Options allowed are warning, fatal, disabled.
+	 * @param metadata metadata severity mode
+	 */
+	public void setMetadata(String metadata) {
+		if (metadata.equalsIgnoreCase("warning")
+				|| metadata.equalsIgnoreCase("fatal")
+				|| metadata.equalsIgnoreCase("disabled")){
+			this.metadata = metadata;
+		}
+		else {
+			throw new BuildException("Incorrect Metadata setting. "
+										+ "Options include: \n"
+										+ "\t\tfatal warning disabled");
+		}
+	}
+
+	/**
+	 * Set fingerprint mode. Options allowed are warning, fatal, disabled.
+	 * @param fingerprint fingerprinting severity mode
+	 */
+	public void setFingerprint(String fingerprint) {
+		if (fingerprint.equalsIgnoreCase("warning")
+				|| fingerprint.equalsIgnoreCase("fatal")
+				|| fingerprint.equalsIgnoreCase("disabled")){
+			this.fingerprint = fingerprint;
+		} else {
+			throw new BuildException("Incorrect Fingerprint setting. "
+										+ "Options include: \n"
+										+ "\t\tfatal warning disabled");
+		}
+	}
+
+	/**
+	 * Set driver type to use
+	 * @param jdbcDriver driver name
+	 */
+	public void setjdbcDriver(String jdbcDriver) {
+		this.jdbcDriver = jdbcDriver;
+	}
+
+	/**
+	 * Set database URL
+	 * @param jdbcUrl URL to database
+	 */
+	public void setjDbcUrl(String jdbcUrl) {
+		this.jdbcUrl = jdbcUrl;
+	}
+
+	/**
+	 * Set the update mode. Options allowed are auto and offline
+	 * @param updates update mode
+	 */
+	public void setUpdates(String updates) {
+		if (updates.equalsIgnoreCase("auto")
+				|| updates.equalsIgnoreCase("offline")){
+			this.updates = updates;
+		} else {
+			this.updates = UPDATES_DEFAULT;
+		}
+	}
+
+	/*
+	 * public void setTolerance(String tolerance){ this.tolerance = tolerance; }
+	 */
 
 	/**
 	 * Setter for nested path attribute
@@ -152,6 +261,57 @@ public class VictimsTask extends Task {
 	}
 
 	/**
+	 * Get baseUrl
+	 * @return database URL
+	 */
+	public String getbaseUrl() {
+		return baseUrl;
+	}
+
+	/**
+	 * Get metadata mode
+	 * @return metadata mode
+	 */
+	public String getMetadata() {
+		return metadata;
+	}
+
+	/**
+	 * Get fingerprint mode
+	 * @return fingerprint mode
+	 */
+	public String getFingerprint() {
+		return fingerprint;
+	}
+
+	/**
+	 * Get database driver
+	 * @return driver name
+	 */
+	public String getjdbcDiver() {
+		return jdbcDriver;
+	}
+
+	/**
+	 * Get database URL
+	 * @return database URL
+	 */
+	public String getjdbcUrl() {
+		return jdbcUrl;
+	}
+
+	/**
+	 * Get update mode
+	 * @return update mode
+	 */
+	public String getUpdates() {
+		return updates;
+	}
+
+	/*
+	 * public String getTolerance(){ return tolerance; }
+	 
+	 *//**
 	 * clone our filesets vector, and patch in the jar attribute as a new
 	 * fileset, if is defined
 	 * 
