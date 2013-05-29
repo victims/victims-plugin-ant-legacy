@@ -1,20 +1,14 @@
 package com.redhat.victims;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Vector;
 import com.redhat.victims.database.VictimsDB;
 import com.redhat.victims.database.VictimsDBInterface;
 import com.redhat.victims.fingerprint.Metadata;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.ArrayList;
-import java.util.Set;
+import com.redhat.victims.VictimsConfig;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 import java.util.jar.Attributes;
@@ -26,7 +20,6 @@ import org.apache.tools.ant.types.FileSet;
 import org.apache.tools.ant.types.resources.FileProvider;
 import org.apache.tools.ant.types.resources.FileResource;
 import org.apache.tools.ant.util.ResourceUtils;
-import org.apache.tools.ant.DefaultLogger;
 
 //import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
 
@@ -38,17 +31,17 @@ public class VictimsTask extends Task {
     protected File jar;
 
     /*
-     * Default options for Ant Task
+     * Default options for Victims connectivity
      */
-    private String METADATA_DEFAULT = "warning";
-    private String FINGERPRINT_DEFAULT = "fatal";
-    private String UPDATES_DEFAULT = "auto";
-    private String DRIVER_DEFAULT = "org.h2.Driver";
-    private String JDBC_URL_DEFAULT = ".victims";
-    private String USER_DEFAULT = "";
-    private String PASS_DEFAULT = "";
-    private String BASE_URL_DEFAULT = "https://victi.ms";
-    private String ENTRY_DEFAULT = "/service";
+    private static final String METADATA_DEFAULT = "warning";
+    private static final String FINGERPRINT_DEFAULT = "fatal";
+    private static final String UPDATES_DEFAULT = "auto";
+    private static final String DRIVER_DEFAULT = "org.h2.Driver";
+    private static final String JDBC_URL_DEFAULT = ".victims";
+    private static final String USER_DEFAULT = "";
+    private static final String PASS_DEFAULT = "";
+    private static final String BASE_URL_DEFAULT = "https://victi.ms";
+    private static final String ENTRY_DEFAULT = "/service";
 
     protected Vector<FileSet> filesets = new Vector<FileSet>();
     private Path path;
@@ -61,6 +54,11 @@ public class VictimsTask extends Task {
     private String updates = UPDATES_DEFAULT;
     private String entryPoint = ENTRY_DEFAULT;
     private String baseUrl = BASE_URL_DEFAULT;
+    /** Allowed values: warning, fatal, disabled */
+    private static String currentMode;
+
+    private static final String METADATA = "metadata";
+    private static final String FINGERPRINT = "fingerprint";
 
     // private String tolerance = Settings.defaults.get(Settings.TOLERANCE);
 
@@ -68,19 +66,20 @@ public class VictimsTask extends Task {
     }
 
     /**
-     * Reports vulnerable dependencies, hopefully in a nice format.
-     * Code taken from enforcer plugin and probably needs updating
-     * to use some sort of execution context.
-     * @param action
-     * @param meta
-     * @param cve
+     * Reports vulnerable dependencies, hopefully in a nice format. Code taken
+     * from enforcer plugin and probably needs updating to use some sort of
+     * execution context.
+     * 
+     * @param action Action being performed. (fingerprint or metadata)
+     * @param meta Metadata extracted from jar manifest in the form of
+     * {@link com.redhat.victims.fingerprint.Metadata}
+     * @param cve Relevant CVE to vulnerability
      * @throws VictimsException
      */
     private void vulnerabilityDetected(String action, Metadata meta, String cve)
             throws VictimsException {
         String impVersion = Attributes.Name.IMPLEMENTATION_VERSION.toString();
         String id = Attributes.Name.IMPLEMENTATION_VENDOR_ID.toString();
-        String d;
 
         // Report finding
         String logMsg = TextUI.fmt(Resources.INFO_VULNERABLE_DEPENDENCY, id,
@@ -93,7 +92,7 @@ public class VictimsTask extends Task {
         errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)))
                 .append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cve));
 
-        if (ctx.getSettings().inFatalMode(ctx.getAction())) {
+        if (inFatalMode()) {
             throw new VictimsException(errMsg.toString());
         }
 
@@ -106,32 +105,41 @@ public class VictimsTask extends Task {
      */
     public void execute() throws BuildException {
         try {
+            setupConfig();
             // Create DB instance and sync
             VictimsDBInterface db = VictimsDB.db();
 
+            if (updatesEnabled()) {
+                log(TextUI.fmt(Resources.INFO_UPDATES,
+                        VictimsConfig.serviceURI()));
+                db.synchronize();
+            }
             // Find all files under supplied path
             Path sources = createUnifiedSourcePath();
             log("Scanning Files ");
             for (Resource r : sources) {
                 boolean alreadyReported = false;
-
+                setMode(fingerprint);
                 // Grab the file
                 FileResource fr = ResourceUtils.asFileResource(r
                         .as(FileProvider.class));
                 File jar = fr.getFile();
                 Metadata meta = getMetadata(jar);
                 String dependency = jar.getAbsolutePath();
+                if (!dependency.endsWith(".jar")) {
+                    continue;
+                }
                 // Create the VictimsRecord
                 for (VictimsRecord vr : VictimsScanner.getRecords(dependency)) {
                     // Do the scanning
                     for (String cve : db.getVulnerabilities(vr)) {
                         // Found something? Report it!
-                        vulnerabilityDetected(Settings.FINGERPRINT, meta, cve);
+                        vulnerabilityDetected(FINGERPRINT, meta, cve);
                     }
                 }
 
                 if (!alreadyReported && !metadata.equals("disabled")) {
-
+                    setMode(metadata);
                     /*
                      * for (String cve : db.getVulnerabilities(gav)) {
                      * vulnerabilityDetected(ctx, cve); }
@@ -143,21 +151,93 @@ public class VictimsTask extends Task {
             log("ERROR: \n" + fnf.getMessage());
         } catch (IOException io) {
             log("ERROR: \n" + io.getMessage());
-        } catch (VictimsException ve){
+        } catch (VictimsException ve) {
             log("ERROR: \n" + ve.getMessage());
         }
 
     }
 
+    /**
+     * Creates metadata from a given jar file.
+     * 
+     * @param jar
+     *            file containing a manifest
+     * @return Metadata containing extracted information from manifest file.
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
     private static Metadata getMetadata(File jar) throws FileNotFoundException,
             IOException {
-        InputStream is = new FileInputStream(jar);
-        JarInputStream jis = new JarInputStream(is);
+        if (jar.getAbsolutePath().endsWith(".jar"))
+            return null;
+        JarInputStream jis;
+        jis = new JarInputStream(new FileInputStream(jar));
         Manifest mf = jis.getManifest();
+        jis.close();
         if (mf != null) {
             return Metadata.fromManifest(mf);
         }
         return null;
+    }
+
+    /**
+     * Set up VictimsConfig key.
+     */
+    public void setupConfig() {
+        if (baseUrl != null) {
+            System.setProperty(VictimsConfig.Key.URI, baseUrl);
+        }
+        if (entryPoint != null) {
+            System.setProperty(VictimsConfig.Key.ENTRY, entryPoint);
+        }
+        if (jdbcDriver != null) {
+            System.setProperty(VictimsConfig.Key.DB_DRIVER, jdbcDriver);
+        }
+        if (jdbcUrl != null) {
+            System.setProperty(VictimsConfig.Key.DB_URL, jdbcUrl);
+        }
+        if (jdbcUser != null) {
+            System.setProperty(VictimsConfig.Key.DB_USER, jdbcUser);
+        }
+        if (jdbcPass != null) {
+            System.setProperty(VictimsConfig.Key.DB_PASS, jdbcPass);
+        }
+    }
+
+    /**
+     * Check if current mode of reporting is fatal
+     * 
+     * @return true for fatal false for warning/disabled
+     */
+    private static boolean inFatalMode() {
+        if (getMode().equalsIgnoreCase("fatal")) {
+            return true;
+        } else {
+            return false;
+        }
+
+    }
+
+    /**
+     * Set the reporting mode
+     * 
+     * @param mode
+     *            value of warning, fatal, or disabled
+     */
+    private static void setMode(String mode) {
+        if (mode.equalsIgnoreCase("warning") || mode.equalsIgnoreCase("fatal")
+                || mode.equalsIgnoreCase("disabled")) {
+            currentMode = mode;
+        }
+    }
+
+    /**
+     * Get the current mode
+     * 
+     * @return Current reporting mode
+     */
+    private static String getMode() {
+        return currentMode;
     }
 
     /**
@@ -230,7 +310,7 @@ public class VictimsTask extends Task {
      * @param jdbcDriver
      *            driver name
      */
-    public void setjdbcDriver(String jdbcDriver) {
+    public void setJdbcDriver(String jdbcDriver) {
         this.jdbcDriver = jdbcDriver;
     }
 
@@ -240,7 +320,7 @@ public class VictimsTask extends Task {
      * @param jdbcUrl
      *            URL to database
      */
-    public void setjDbcUrl(String jdbcUrl) {
+    public void setJdbcUrl(String jdbcUrl) {
         this.jdbcUrl = jdbcUrl;
     }
 
@@ -258,10 +338,6 @@ public class VictimsTask extends Task {
             this.updates = UPDATES_DEFAULT;
         }
     }
-
-    /*
-     * public void setTolerance(String tolerance){ this.tolerance = tolerance; }
-     */
 
     /**
      * Setter for nested path attribute
@@ -357,9 +433,17 @@ public class VictimsTask extends Task {
         return updates;
     }
 
-    /*
-     * public String getTolerance(){ return tolerance; }
-     *//**
+    /**
+     * Updates enabled check
+     * 
+     * @return true if updates are enabled
+     */
+    public boolean updatesEnabled() {
+        String val = getUpdates();
+        return val != null && val.equalsIgnoreCase("auto");
+    }
+
+    /**
      * clone our filesets vector, and patch in the jar attribute as a new
      * fileset, if is defined
      * 
