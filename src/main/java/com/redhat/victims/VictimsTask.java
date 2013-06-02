@@ -9,6 +9,7 @@ import com.redhat.victims.database.VictimsDB;
 import com.redhat.victims.database.VictimsDBInterface;
 import com.redhat.victims.fingerprint.Metadata;
 import com.redhat.victims.VictimsConfig;
+import com.redhat.victims.VictimsException;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 import java.util.jar.Attributes;
@@ -47,20 +48,18 @@ public class VictimsTask extends Task {
     private Path path;
     private String metadata = METADATA_DEFAULT;
     private String fingerprint = FINGERPRINT_DEFAULT;
-    private String jdbcDriver = DRIVER_DEFAULT;
-    private String jdbcUrl = JDBC_URL_DEFAULT;
-    private String jdbcUser = USER_DEFAULT;
-    private String jdbcPass = PASS_DEFAULT;
+    private String jdbcDriver;// = DRIVER_DEFAULT;
+    private String jdbcUrl;// = JDBC_URL_DEFAULT;
+    private String jdbcUser;// = USER_DEFAULT;
+    private String jdbcPass;// = PASS_DEFAULT;
     private String updates = UPDATES_DEFAULT;
-    private String entryPoint = ENTRY_DEFAULT;
-    private String baseUrl = BASE_URL_DEFAULT;
+    private String entryPoint;// = ENTRY_DEFAULT;
+    private String baseUrl; //= BASE_URL_DEFAULT;
     /** Allowed values: warning, fatal, disabled */
-    private static String currentMode;
+    private String currentMode;
 
     private static final String METADATA = "metadata";
     private static final String FINGERPRINT = "fingerprint";
-
-    // private String tolerance = Settings.defaults.get(Settings.TOLERANCE);
 
     public VictimsTask() {
     }
@@ -76,7 +75,7 @@ public class VictimsTask extends Task {
      * @param cve Relevant CVE to vulnerability
      * @throws VictimsException
      */
-    private void vulnerabilityDetected(String action, Metadata meta, String cve)
+    public void vulnerabilityDetected(String action, Metadata meta, String cve)
             throws VictimsException {
         String impVersion = Attributes.Name.IMPLEMENTATION_VERSION.toString();
         String id = Attributes.Name.IMPLEMENTATION_VENDOR_ID.toString();
@@ -85,7 +84,7 @@ public class VictimsTask extends Task {
         String logMsg = TextUI.fmt(Resources.INFO_VULNERABLE_DEPENDENCY, id,
                 impVersion, cve.trim());
 
-        log("!!!!!!" + action + "\n\n" + logMsg);
+        log(action + "\n\n" + logMsg);
 
         // Fail if in fatal mode
         StringBuilder errMsg = new StringBuilder();
@@ -145,14 +144,16 @@ public class VictimsTask extends Task {
                      * vulnerabilityDetected(ctx, cve); }
                      */
                 }
+                log("No vulnerabilites found!");
             }
 
         } catch (FileNotFoundException fnf) {
-            log("ERROR: \n" + fnf.getMessage());
+            log("ERROR: " + fnf.getMessage());
         } catch (IOException io) {
-            log("ERROR: \n" + io.getMessage());
+            log("ERROR: " + io.getMessage());
         } catch (VictimsException ve) {
-            log("ERROR: \n" + ve.getMessage());
+            log("ERROR: " + ve.getMessage());
+            ve.printStackTrace();
         }
 
     }
@@ -209,7 +210,7 @@ public class VictimsTask extends Task {
      * 
      * @return true for fatal false for warning/disabled
      */
-    private static boolean inFatalMode() {
+    private boolean inFatalMode() {
         if (getMode().equalsIgnoreCase("fatal")) {
             return true;
         } else {
@@ -224,7 +225,7 @@ public class VictimsTask extends Task {
      * @param mode
      *            value of warning, fatal, or disabled
      */
-    private static void setMode(String mode) {
+    public void setMode(String mode) {
         if (mode.equalsIgnoreCase("warning") || mode.equalsIgnoreCase("fatal")
                 || mode.equalsIgnoreCase("disabled")) {
             currentMode = mode;
@@ -236,7 +237,7 @@ public class VictimsTask extends Task {
      * 
      * @return Current reporting mode
      */
-    private static String getMode() {
+    public String getMode() {
         return currentMode;
     }
 
