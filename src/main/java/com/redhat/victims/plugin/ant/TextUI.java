@@ -183,7 +183,7 @@ public final class TextUI {
     public static String fmt(final String key, final Object... args) {
 
         ResourceBundle bundle = ResourceBundle
-                .getBundle("com.redhat.victims.Resources");
+                .getBundle("com.redhat.victims.plugin.ant.Resources");
         String formatting = bundle.getString(key);
         return String.format(formatting, args);
     }

@@ -5,25 +5,26 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Vector;
-import com.redhat.victims.database.VictimsDB;
-import com.redhat.victims.database.VictimsDBInterface;
-import com.redhat.victims.fingerprint.Metadata;
+import java.util.jar.Attributes;
+import java.util.jar.JarInputStream;
+import java.util.jar.Manifest;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Task;
+import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.Path;
+import org.apache.tools.ant.types.Resource;
+import org.apache.tools.ant.types.resources.FileProvider;
+import org.apache.tools.ant.types.resources.FileResource;
+import org.apache.tools.ant.util.ResourceUtils;
+
 import com.redhat.victims.VictimsConfig;
 import com.redhat.victims.VictimsException;
 import com.redhat.victims.VictimsRecord;
 import com.redhat.victims.VictimsScanner;
-
-import java.util.jar.JarInputStream;
-import java.util.jar.Manifest;
-import java.util.jar.Attributes;
-import org.apache.tools.ant.Task;
-import org.apache.tools.ant.BuildException;
-import org.apache.tools.ant.types.Path;
-import org.apache.tools.ant.types.Resource;
-import org.apache.tools.ant.types.FileSet;
-import org.apache.tools.ant.types.resources.FileProvider;
-import org.apache.tools.ant.types.resources.FileResource;
-import org.apache.tools.ant.util.ResourceUtils;
+import com.redhat.victims.database.VictimsDB;
+import com.redhat.victims.database.VictimsDBInterface;
+import com.redhat.victims.fingerprint.Metadata;
 
 //import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
 
@@ -40,24 +41,22 @@ public class VictimsTask extends Task {
     private static final String METADATA_DEFAULT = "warning";
     private static final String FINGERPRINT_DEFAULT = "fatal";
     private static final String UPDATES_DEFAULT = "auto";
-    private static final String DRIVER_DEFAULT = "org.h2.Driver";
-    private static final String JDBC_URL_DEFAULT = ".victims";
-    private static final String USER_DEFAULT = "";
-    private static final String PASS_DEFAULT = "";
-    private static final String BASE_URL_DEFAULT = "https://victi.ms";
-    private static final String ENTRY_DEFAULT = "/service";
+    private static final String USER_DEFAULT = "victims";
+    private static final String PASS_DEFAULT = "victims";
+    private static final String BASE_URL_DEFAULT = "http://www.victi.ms/";
+    private static final String ENTRY_DEFAULT = "service/";
 
     protected Vector<FileSet> filesets = new Vector<FileSet>();
     private Path path;
     private String metadata = METADATA_DEFAULT;
     private String fingerprint = FINGERPRINT_DEFAULT;
-    private String jdbcDriver;// = DRIVER_DEFAULT;
-    private String jdbcUrl;// = JDBC_URL_DEFAULT;
-    private String jdbcUser;// = USER_DEFAULT;
-    private String jdbcPass;// = PASS_DEFAULT;
+    private String jdbcDriver = VictimsDB.defaultDriver();
+    private String jdbcUrl = VictimsDB.defaultURL();
+    private String jdbcUser = USER_DEFAULT;
+    private String jdbcPass = PASS_DEFAULT;
     private String updates = UPDATES_DEFAULT;
-    private String entryPoint;// = ENTRY_DEFAULT;
-    private String baseUrl; //= BASE_URL_DEFAULT;
+    private String entryPoint = ENTRY_DEFAULT;
+    private String baseUrl = BASE_URL_DEFAULT;
     /** Allowed values: warning, fatal, disabled */
     private String currentMode;
 
@@ -84,7 +83,8 @@ public class VictimsTask extends Task {
         String id = Attributes.Name.IMPLEMENTATION_VENDOR_ID.toString();
 
         // Report finding
-        String logMsg = TextUI.fmt(Resources.INFO_VULNERABLE_DEPENDENCY, id,
+        String logMsg = TextUI.fmt(
+                Resources.INFO_VULNERABLE_DEPENDENCY, id,
                 impVersion, cve.trim());
 
         log(action + "\n\n" + logMsg);
@@ -147,9 +147,9 @@ public class VictimsTask extends Task {
                      * vulnerabilityDetected(ctx, cve); }
                      */
                 }
-                log("No vulnerabilites found!");
+                
             }
-
+            log("No vulnerabilites found!");
         } catch (FileNotFoundException fnf) {
             log("ERROR: " + fnf.getMessage());
         } catch (IOException io) {

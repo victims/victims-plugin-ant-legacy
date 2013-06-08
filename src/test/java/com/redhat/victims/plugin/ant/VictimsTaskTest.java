@@ -13,7 +13,6 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import com.redhat.victims.fingerprint.Metadata;
-import com.redhat.victims.plugin.ant.VictimsTask;
 
 public class VictimsTaskTest {
 
