@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <project xmlns:ivy="antlib:org.apache.ivy.ant" name="springtest" basedir="." default="scan">
     <target name="define" depends="resolve" description="Define the task">
-        <taskdef name="victims" classname="com.redhat.victims.VictimsTask">
+        <taskdef name="victims" classname="com.redhat.victims.plugin.ant.VictimsTask">
             <classpath>
                 <fileset dir="lib" includes="**/*.jar"/>
             </classpath>
