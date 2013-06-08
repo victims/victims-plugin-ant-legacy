@@ -3,6 +3,8 @@ package com.redhat.victims.plugin.ant;
 import static org.junit.Assert.*;
 
 import com.redhat.victims.VictimsException;
+
+import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Resource;
@@ -40,7 +42,7 @@ public class VictimsTaskTest {
         
     }
     
-    @Test(expected=VictimsException.class)
+    @Test(expected=BuildException.class)
     public void testVulnerabilityDetected() throws VictimsException {
         String action = "fingerprint";
         String cve    = "CVE-1111-1111";

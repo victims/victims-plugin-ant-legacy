@@ -78,7 +78,7 @@ public class VictimsTask extends Task {
      * @throws VictimsException
      */
     public void vulnerabilityDetected(String action, Metadata meta, String cve)
-            throws VictimsException {
+            throws BuildException {
         String impVersion = Attributes.Name.IMPLEMENTATION_VERSION.toString();
         String id = Attributes.Name.IMPLEMENTATION_VENDOR_ID.toString();
 
@@ -95,7 +95,7 @@ public class VictimsTask extends Task {
                 .append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cve));
 
         if (inFatalMode()) {
-            throw new VictimsException(errMsg.toString());
+            throw new BuildException(errMsg.toString());
         }
 
     }
