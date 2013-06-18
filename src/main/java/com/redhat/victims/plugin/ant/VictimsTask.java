@@ -33,8 +33,6 @@ import com.redhat.victims.fingerprint.Metadata;
  */
 public class VictimsTask extends Task {
 
-    protected File jar;
-
     /*
      * Default options for Victims connectivity
      */
@@ -45,8 +43,12 @@ public class VictimsTask extends Task {
     private static final String PASS_DEFAULT = "victims";
     private static final String BASE_URL_DEFAULT = "http://www.victi.ms/";
     private static final String ENTRY_DEFAULT = "service/";
-
+    private static final String METADATA = "metadata";
+    private static final String FINGERPRINT = "fingerprint";
+    
     protected Vector<FileSet> filesets = new Vector<FileSet>();
+    protected File jar;
+    
     private Path path;
     private String metadata = METADATA_DEFAULT;
     private String fingerprint = FINGERPRINT_DEFAULT;
@@ -57,11 +59,10 @@ public class VictimsTask extends Task {
     private String updates = UPDATES_DEFAULT;
     private String entryPoint = ENTRY_DEFAULT;
     private String baseUrl = BASE_URL_DEFAULT;
-    /** Allowed values: warning, fatal, disabled */
+    /* Allowed values: warning, fatal, disabled */
     private String currentMode;
 
-    private static final String METADATA = "metadata";
-    private static final String FINGERPRINT = "fingerprint";
+
 
     public VictimsTask() {
     }
@@ -87,7 +88,7 @@ public class VictimsTask extends Task {
                 Resources.INFO_VULNERABLE_DEPENDENCY, id,
                 impVersion, cve.trim());
 
-        log(action + "\n\n" + logMsg);
+        log(logMsg);
 
         // Fail if in fatal mode
         StringBuilder errMsg = new StringBuilder();
@@ -95,7 +96,7 @@ public class VictimsTask extends Task {
                 .append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cve));
 
         if (inFatalMode()) {
-            throw new BuildException(errMsg.toString());
+            throw new VictimsBuildException(errMsg.toString());
         }
 
     }
@@ -174,8 +175,7 @@ public class VictimsTask extends Task {
             IOException {
         if (jar.getAbsolutePath().endsWith(".jar"))
             return null;
-        JarInputStream jis;
-        jis = new JarInputStream(new FileInputStream(jar));
+        JarInputStream jis = new JarInputStream(new FileInputStream(jar));
         Manifest mf = jis.getManifest();
         jis.close();
         if (mf != null) {
@@ -255,7 +255,7 @@ public class VictimsTask extends Task {
     }
 
     /**
-     * Set base URL of database. Default is https://victi.ms
+     * Set base URL of database. Default is http://victi.ms
      * 
      * @param baseUrl
      *            base URL of database
