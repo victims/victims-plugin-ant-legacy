@@ -31,15 +31,7 @@ public class VictimsTaskTest {
         Path path = new Path(project, "/home/kurt/ant/apache-ant-1.9.0/lib/*");
         Path path2 = path.createPath();
         vt.setPath(path2);
-        vt.execute();
-  /*      for (Resource r : sources) {
-            FileResource fr = ResourceUtils.asFileResource(r
-                    .as(FileProvider.class));
-            System.out.println(fr.getFile().getAbsolutePath());
-            assert fr.getFile().getAbsolutePath()
-                    .equals("/home/kurt/ant/apache-ant-1.9.0/lib");
-        }*/
-        
+        vt.execute();        
     }
     
     @Test(expected=BuildException.class)
@@ -49,6 +41,22 @@ public class VictimsTaskTest {
         Metadata meta = new Metadata();
         vt.setMode("fatal");
         vt.vulnerabilityDetected(action, meta, cve);
+    }
+    
+    @Test
+    public void testExecute(){
+    	vt.init();
+    	vt.setProject(project);
+        Path path = new Path(project, "");
+        Path path2 = path.createPath();
+        vt.setPath(path2);
+        assertTrue(vt.getPath() != null);
+        assertTrue(!vt.getbaseUrl().equals(""));
+        assertTrue(!vt.getProject().equals(""));
+        assertTrue(vt.getUpdates().equalsIgnoreCase("auto")
+        			|| vt.getUpdates().equalsIgnoreCase("offline"));
+        vt.execute();
+        
     }
 
 }
