@@ -34,6 +34,9 @@ public class VictimsTaskTest {
         vt.execute();        
     }
     
+    /*
+     * Checks correct exception is thrown
+     */
     @Test(expected=BuildException.class)
     public void testVulnerabilityDetected() throws VictimsException {
         String action = "fingerprint";
@@ -50,6 +53,7 @@ public class VictimsTaskTest {
         Path path = new Path(project, "");
         Path path2 = path.createPath();
         vt.setPath(path2);
+        /* assert default settings exist */
         assertTrue(vt.getPath() != null);
         assertTrue(!vt.getbaseUrl().equals(""));
         assertTrue(!vt.getProject().equals(""));
