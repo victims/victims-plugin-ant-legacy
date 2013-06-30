@@ -51,7 +51,7 @@
                 <artifactId>license-maven-plugin</artifactId>
                 <version>1.4</version>
                 <configuration>
-                    <descriptionTemplate>${basedir}/src/licence/header.ftl</descriptionTemplate>
+                    <descriptionTemplate>${basedir}/src/license/header.ftl</descriptionTemplate>
                         <verbose>false</verbose>
                     <licenseName>agpl_v3</licenseName>
                     <includes>
