@@ -26,10 +26,10 @@ If successful the build should fail with a vulnerable dependency in the spring l
 ```xml
   <?xml version="1.0" encoding="ISO-8859-1"?>
       <project name="ProjectName" basedir="." default="scan">
-          /* 
-           * This defines the task utilising the victims-plugin-ant jar.
-           * Make sure the victims-plugin-ant.jar library is available in the classpath
-           */
+          <!-- 
+            This defines the task utilising the victims-plugin-ant jar.
+            Make sure the victims-plugin-ant.jar library is available in the classpath
+          -->
           <target name="define" description="Define the task">
               <taskdef name="victims" classname="com.redhat.victims.plugin.ant.VictimsTask">
                   <classpath>
@@ -38,10 +38,10 @@ If successful the build should fail with a vulnerable dependency in the spring l
               </taskdef>
           </target>
           
-          /*
-           * This target executes the victims-plugin-ant task. Path is the only
-           * required parameter. For other possible parameters see below.
-           */
+          <!--
+            This target executes the victims-plugin-ant task. Path is the only
+            required parameter. For other possible parameters see below.
+           -->
           <target name="scan" depends="define" description="Run the victims scan">
               <victims>
                   <path>
