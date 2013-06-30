@@ -10,17 +10,21 @@ Getting Started
 ===============
 A sample Ant project is provided in sample/
 The sample project requires Apache Ant & Apache Ivy, found at the following:
+```
   ant.apache.org        -- Ant
   ant.apache.org/ivy    -- Ivy
-
+```
 To run:
+```sh
   cd sample/
   ant
-  
+```
+
 If successful the build should fail with a vulnerable dependency in the spring library.
 
 Sample build.xml
 ================
+```xml
   <?xml version="1.0" encoding="ISO-8859-1"?>
       <project name="ProjectName" basedir="." default="scan">
           /* 
@@ -47,11 +51,11 @@ Sample build.xml
               </victims>
           </target>
       </project>
-      
+```
 Configuration options reference
 ===============================
 
-The following options can be specified as child elements of <victims>
+The following options can be specified as child elements of ```xml<victims>```
 
 baseUrl
 =======
