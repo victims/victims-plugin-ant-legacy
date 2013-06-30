@@ -7,6 +7,19 @@
 	<packaging>jar</packaging>
 	<name>victims-plugin-ant</name>
 	<url>http://victims-websec.rhcloud.com</url>
+    <description>A java library providing Ant an interface into the Victims Project</description>
+    <organization>
+        <name>The Victims Project</name>
+        <url>http://victi.ms</url>
+    </organization>
+    <inceptionYear>2013</inceptionYear>
+    <licenses>
+        <license>
+            <name>GNU Affero General Public License, Version 3</name>
+            <url>http://www.gnu.org/licenses/agp1-3.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -33,6 +46,20 @@
 					</archive>
 				</configuration>
 			</plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>1.4</version>
+                <configuration>
+                    <descriptionTemplate>${basedir}/src/licence/header.ftl</descriptionTemplate>
+                        <verbose>false</verbose>
+                    <licenseName>agpl_v3</licenseName>
+                    <includes>
+                        <include>**/main/**/*</include>
+                        <include>**/test/**/mock/*</include>
+                    </includes>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
 	<dependencies>
