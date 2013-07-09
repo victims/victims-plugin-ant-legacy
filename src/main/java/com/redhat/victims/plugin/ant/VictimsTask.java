@@ -25,6 +25,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Vector;
 import java.util.jar.Attributes;
 import java.util.jar.JarInputStream;
@@ -140,6 +142,7 @@ public class VictimsTask extends Task {
             }
             // Find all files under supplied path
             Path sources = createUnifiedSourcePath();
+            //log(sources. + " path");
             log("Scanning Files ");
             for (Resource r : sources) {
                 boolean alreadyReported = false;
@@ -148,7 +151,7 @@ public class VictimsTask extends Task {
                 FileResource fr = ResourceUtils.asFileResource(r
                         .as(FileProvider.class));
                 File jar = fr.getFile();
-                Metadata meta = getMetadata(jar);
+                Metadata meta = getMeta(jar);
                 String dependency = jar.getAbsolutePath();
                 if (!dependency.endsWith(".jar")) {
                     continue;
@@ -158,16 +161,31 @@ public class VictimsTask extends Task {
                     // Do the scanning
                     for (String cve : db.getVulnerabilities(vr)) {
                         // Found something? Report it!
-                        vulnerabilityDetected(FINGERPRINT, meta, cve);
+                        vulnerabilityDetected(getMode(), meta, cve);
                     }
                 }
 
                 if (!alreadyReported && !metadata.equals("disabled")) {
                     setMode(metadata);
-                    /*
-                     * for (String cve : db.getVulnerabilities(gav)) {
-                     * vulnerabilityDetected(ctx, cve); }
-                     */
+                    
+                    HashMap<String,String> gav = new HashMap<String,String>();
+                    gav.put("groupId", meta.get("groupId"));
+                    gav.put("artifactId", meta.get("artifactId"));
+                    gav.put("version", meta.get("version"));
+
+                    log(gav.get("groupId") + "\n" + gav.get("artifactId") + "\n" + gav.get("version"));
+                    HashSet<String> cves = db.getVulnerabilities(gav);
+                    if (! cves.isEmpty()){
+                    	StringBuilder errMsg = new StringBuilder();
+                    	errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)))
+                    		.append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cves));
+                    	
+                    	if (inFatalMode()){
+                    		throw new VictimsBuildException(errMsg.toString());
+                    	} else {
+                    		log(errMsg.toString());
+                    	}
+                    }
                 }
                 
             }
@@ -192,9 +210,9 @@ public class VictimsTask extends Task {
      * @throws FileNotFoundException
      * @throws IOException
      */
-    private static Metadata getMetadata(File jar) throws FileNotFoundException,
+    public static Metadata getMeta(File jar) throws FileNotFoundException,
             IOException {
-        if (jar.getAbsolutePath().endsWith(".jar"))
+        if (!jar.getAbsolutePath().endsWith(".jar"))
             return null;
         JarInputStream jis = new JarInputStream(new FileInputStream(jar));
         Manifest mf = jis.getManifest();
