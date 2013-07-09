@@ -2,6 +2,11 @@ package com.redhat.victims.plugin.ant;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.HashMap;
+
 import com.redhat.victims.VictimsException;
 
 import org.apache.tools.ant.BuildException;
@@ -61,6 +66,35 @@ public class VictimsTaskTest {
         			|| vt.getUpdates().equalsIgnoreCase("offline"));
         vt.execute();
         
+    }
+    
+    /**
+     * Needs jar with proper manifest info!
+     */
+    @Test
+    public void testMetadata(){
+    	vt.init();
+    	vt.setMode("fatal");
+    	File jar = new File("testdata","spring-2.5.6.jar");
+    	assertTrue(jar.canRead());
+    	try {
+    		Metadata meta = VictimsTask.getMeta(jar);
+    		HashMap<String,String> gav = new HashMap<String,String>();
+    		if (meta.containsKey("Manifest-Version"))
+    			gav.put("groupId", meta.get("Manifest-Version"));
+    		if (meta.containsKey("Implementation-Version"))
+    			gav.put("artifactId", meta.get("Implementation-Version"));
+    		if (meta.containsKey("Implementation-Title"))
+    			gav.put("version", meta.get("Implementation-Title"));
+    		
+            assertTrue(gav.get("groupId").equals("1.0"));
+            assertTrue(gav.get("artifactId").equals("2.5.6"));
+            assertTrue(gav.get("version").equals("Spring Framework"));
+    	} catch (FileNotFoundException fn){
+    		
+    	} catch (IOException ie){
+    		
+    	}
     }
 
 }
