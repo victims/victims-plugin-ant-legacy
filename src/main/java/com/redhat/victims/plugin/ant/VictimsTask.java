@@ -25,16 +25,24 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Vector;
 import java.util.jar.Attributes;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.types.FileSet;
+import org.apache.tools.ant.types.LogLevel;
 import org.apache.tools.ant.types.Path;
 import org.apache.tools.ant.types.Resource;
 import org.apache.tools.ant.types.resources.FileProvider;
@@ -44,6 +52,7 @@ import org.apache.tools.ant.util.ResourceUtils;
 import com.redhat.victims.VictimsConfig;
 import com.redhat.victims.VictimsException;
 import com.redhat.victims.VictimsRecord;
+import com.redhat.victims.VictimsResultCache;
 import com.redhat.victims.VictimsScanner;
 import com.redhat.victims.database.VictimsDB;
 import com.redhat.victims.database.VictimsDBInterface;
@@ -70,8 +79,8 @@ public class VictimsTask extends Task {
     private static final String FINGERPRINT = "fingerprint";
     
     protected Vector<FileSet> filesets = new Vector<FileSet>();
-    protected File jar;
-    
+  //  protected File jar;
+    private VictimsResultCache cache;
     private Path path;
     private String metadata = METADATA_DEFAULT;
     private String fingerprint = FINGERPRINT_DEFAULT;
@@ -82,6 +91,7 @@ public class VictimsTask extends Task {
     private String updates = UPDATES_DEFAULT;
     private String entryPoint = ENTRY_DEFAULT;
     private String baseUrl = BASE_URL_DEFAULT;
+    
     /* Allowed values: warning, fatal, disabled */
     private String currentMode;
 
@@ -130,27 +140,85 @@ public class VictimsTask extends Task {
      * against the vulnerability database.
      */
     public void execute() throws BuildException {
+        int cores = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = null;
+        List<Future<FileStub>> jobs = null;
+        
+        setupConfig();
+        
         try {
-            setupConfig();
+ 
             // Create DB instance and sync
             VictimsDBInterface db = VictimsDB.db();
-
             if (updatesEnabled()) {
                 log(TextUI.fmt(Resources.INFO_UPDATES,
                         VictimsConfig.serviceURI()));
                 db.synchronize();
             }
+
+            executor = Executors.newFixedThreadPool(cores);
+            jobs = new ArrayList<Future<FileStub>>();
+            
             // Find all files under supplied path
             Path sources = createUnifiedSourcePath();
-            //log(sources. + " path");
             log("Scanning Files ");
             for (Resource r : sources) {
-                boolean alreadyReported = false;
-                setMode(fingerprint);
+                
                 // Grab the file
                 FileResource fr = ResourceUtils.asFileResource(r
                         .as(FileProvider.class));
-                File jar = fr.getFile();
+                
+                FileStub fs = new FileStub(fr.getFile());
+                String fsid = fs.getId();
+                
+                //Check the cache
+                if (cache.exists(fs.getId())){
+                	HashSet<String> cves = cache.get(fsid);
+                	log("Cached: " + fsid, LogLevel.DEBUG.getLevel());
+                	/* need to alter vulndetected for this */
+                	if (! cves.isEmpty()){
+                    	StringBuilder errMsg = new StringBuilder();
+                    	errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)))
+                    		.append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cves));
+                    	if (inFatalMode())
+                    		throw new VictimsBuildException(errMsg.toString());
+                    	else 
+                    		log(errMsg.toString(), LogLevel.WARN.getLevel());
+                	}
+                	continue;
+                }
+                
+                Callable<FileStub> worker = new VictimsCommand(fs.getFile());
+                jobs.add(executor.submit(worker)); 
+            }
+            executor.shutdown();
+            
+            for (Future<FileStub> future : jobs){
+            	try {
+            		FileStub checked = future.get();
+            		if (checked != null){
+            			log("Finished: " + checked.getId(), LogLevel.DEBUG.getLevel());
+            			cache.add(checked.getId(), null);
+            		}
+            	} catch (InterruptedException ie){
+            		log(ie.getMessage(), LogLevel.DEBUG.getLevel());
+            	} catch (ExecutionException e) {
+            		//Need an exception that is not a build exception
+            		log(e, LogLevel.DEBUG.getLevel());
+            		Throwable cause = e.getCause();
+            		if (cause instanceof VictimsBuildException){
+            			VictimsBuildException vbe = (VictimsBuildException) cause;
+            		//	cache.add(v, cves);
+            			log(vbe.getMessage(), LogLevel.INFO.getLevel());
+            			
+            			//Check for fatal mode
+            		}
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+            }
+   /*         boolean alreadyReported = false;
+            setMode(fingerprint);
                 Metadata meta = getMeta(jar);
                 String dependency = jar.getAbsolutePath();
                 if (!dependency.endsWith(".jar")) {
@@ -188,13 +256,13 @@ public class VictimsTask extends Task {
                     }
                 }
                 
-            }
+            }*/
             log("No vulnerabilites found!");
-        } catch (FileNotFoundException fnf) {
+  /*      } catch (FileNotFoundException fnf) {
             log("ERROR: " + fnf.getMessage());
         } catch (IOException io) {
             log("ERROR: " + io.getMessage());
-        } catch (VictimsException ve) {
+ */       } catch (VictimsException ve) {
             log("ERROR: " + ve.getMessage());
             ve.printStackTrace();
         }
@@ -245,6 +313,13 @@ public class VictimsTask extends Task {
         if (jdbcPass != null) {
             System.setProperty(VictimsConfig.Key.DB_PASS, jdbcPass);
         }
+        
+        /* Create results cache */
+        try {
+			cache = new VictimsResultCache();
+		} catch (VictimsException e) {
+			throw new VictimsBuildException(e.getMessage());
+		}
     }
 
     /**
@@ -289,9 +364,9 @@ public class VictimsTask extends Task {
      * @param jar
      *            a .jar archive
      */
-    public void setJar(final File jar) {
+  /*  public void setJar(final File jar) {
         this.jar = jar;
-    }
+    }*/
 
     /**
      * Set base URL of database. Default is http://victi.ms
@@ -409,9 +484,9 @@ public class VictimsTask extends Task {
      * 
      * @return a single .jar file
      */
-    public File getJar() {
+   /* public File getJar() {
         return jar;
-    }
+    }*/
 
     /**
      * Getter for path
@@ -495,7 +570,7 @@ public class VictimsTask extends Task {
     protected Vector<FileSet> createUnifiedSources() {
         @SuppressWarnings("unchecked")
         Vector<FileSet> sources = (Vector<FileSet>) filesets.clone();
-        if (jar != null) {
+     /*   if (jar != null) {
             // we create a fileset with the source file.
             // this lets us combine our logic for handling output directories,
             // mapping etc.
@@ -504,7 +579,7 @@ public class VictimsTask extends Task {
             sourceJar.setFile(jar);
             sourceJar.setDir(jar.getParentFile());
             sources.add(sourceJar);
-        }
+        }*/
         return sources;
     }
 
