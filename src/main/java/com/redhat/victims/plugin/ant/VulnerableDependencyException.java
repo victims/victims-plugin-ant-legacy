@@ -1,6 +1,5 @@
 package com.redhat.victims.plugin.ant;
 
-import java.io.File;
 import java.util.HashSet;
 
 import com.redhat.victims.VictimsException;
@@ -12,10 +11,9 @@ public class VulnerableDependencyException extends VictimsException {
 	private String artifact;
 	private String action;
 	private HashSet<String> cves;
-	private boolean fatalMode;
 
 	public VulnerableDependencyException(FileStub fs, String action,
-			HashSet<String> cves, boolean fatal) {
+			HashSet<String> cves) {
 		super(String.format("CVE: %s, File: %s", cves, fs.getId()));
 
 		this.action = action;
@@ -29,6 +27,10 @@ public class VulnerableDependencyException extends VictimsException {
 		this.errorMessage = errMsg.toString();
 		this.cves = cves;
 		this.artifact = fs.getId();
+	}
+	
+	public boolean isFatal(ExecutionContext ctx){
+		return ctx.inFatalMode(action);
 	}
 
 	public String getId() {
