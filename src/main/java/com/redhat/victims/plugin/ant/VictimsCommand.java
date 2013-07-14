@@ -23,13 +23,15 @@ public class VictimsCommand implements Callable<FileStub> {
 
 	VictimsCommand(ExecutionContext ctx, FileStub jar) {
 		this.jar = jar;
+		this.ctx = ctx;
 	}
 
 	public FileStub call() throws Exception {
-		ctx.getLog().log("Scanning: " + jar.getFileName(),
-				LogLevel.DEBUG.getLevel());
+		System.out.println(jar.getFileName());
+		assert(ctx != null);
+		ctx.getLog().log("Scanning: " + jar.getFileName());
 		VictimsDBInterface db = ctx.getDatabase();
-		String dependency = jar.getFileName();
+		String dependency = jar.getFile().getAbsolutePath();
 
 		// fingerprint
 		if (ctx.isEnabled(Settings.FINGERPRINT)) {

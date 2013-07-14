@@ -22,17 +22,12 @@ package com.redhat.victims.plugin.ant;
  */
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Vector;
-import java.util.jar.JarInputStream;
-import java.util.jar.Manifest;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -55,51 +50,74 @@ import com.redhat.victims.VictimsException;
 import com.redhat.victims.VictimsResultCache;
 import com.redhat.victims.database.VictimsDB;
 import com.redhat.victims.database.VictimsDBInterface;
-import com.redhat.victims.fingerprint.Metadata;
-
-//import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
 
 /**
  * @author kgreav
  */
 public class VictimsTask extends Task {
 
-	/*
-	 * Default options for Victims connectivity
-	 */
-	private static final String METADATA_DEFAULT = "warning";
-	private static final String FINGERPRINT_DEFAULT = "fatal";
-	private static final String UPDATES_DEFAULT = "auto";
-	private static final String USER_DEFAULT = "victims";
-	private static final String PASS_DEFAULT = "victims";
-	private static final String BASE_URL_DEFAULT = "http://www.victi.ms/";
-	private static final String ENTRY_DEFAULT = "service/";
-	private static final String METADATA = "metadata";
-	private static final String FINGERPRINT = "fingerprint";
-
 	protected Vector<FileSet> filesets = new Vector<FileSet>();
-	// protected File jar;
+	protected File jar;
+
+	/*
+	 * Properties set by ant parameters in build.xml Defaults get overwritten by
+	 * parameters
+	 */
 	private Path path;
-	private String metadata = METADATA_DEFAULT;
-	private String fingerprint = FINGERPRINT_DEFAULT;
+	private String metadata = Settings.MODE_WARNING;
+	private String fingerprint = Settings.MODE_FATAL;
 	private String jdbcDriver = VictimsDB.defaultDriver();
 	private String jdbcUrl = VictimsDB.defaultURL();
-	private String jdbcUser = USER_DEFAULT;
-	private String jdbcPass = PASS_DEFAULT;
-	private String updates = UPDATES_DEFAULT;
-	private String entryPoint = ENTRY_DEFAULT;
-	private String baseUrl = BASE_URL_DEFAULT;
+	private String jdbcUser = Settings.USER_DEFAULT;
+	private String updates = Settings.UPDATES_AUTO;
+	private String jdbcPass = Settings.PASS_DEFAULT;
+	private String entryPoint = Settings.ENTRY_DEFAULT;
+	private String baseUrl = Settings.BASE_URL_DEFAULT;
 
 	public ExecutionContext ctx;
+
 	/* Allowed values: warning, fatal, disabled */
-	private String currentMode;
 
+	/**
+	 * Task constructor, Initialises the context with default settings and
+	 * creates the log, cache and database.
+	 */
 	public VictimsTask() {
+		/* Set up the execution context */
 		ctx = new ExecutionContext();
-	}
+		ctx.setSettings(new Settings());
+		ctx.setLog(new LogOutputResource(this));
 
-	public void execute() throws BuildException {
-		execute(setupConfig());
+		/* Initialise the default settings */
+		ctx.getSettings().set(VictimsConfig.Key.URI, baseUrl);
+		ctx.getSettings().set(VictimsConfig.Key.DB_DRIVER, jdbcDriver);
+		ctx.getSettings().set(VictimsConfig.Key.DB_URL, jdbcUrl);
+		ctx.getSettings().set(Settings.METADATA, metadata);
+		ctx.getSettings().set(Settings.FINGERPRINT, fingerprint);
+		ctx.getSettings().set(VictimsConfig.Key.ENTRY, entryPoint);
+		ctx.getSettings().set(VictimsConfig.Key.DB_USER, jdbcUser);
+		ctx.getSettings().set(VictimsConfig.Key.DB_PASS, jdbcPass);
+		ctx.getSettings().set(Settings.UPDATE_DATABASE, updates);
+
+		// Only need to query using one hashing mechanism
+		System.setProperty(VictimsConfig.Key.ALGORITHMS, "SHA512");
+
+		/* Create results cache & victims DB */
+		try {
+			VictimsResultCache cache = new VictimsResultCache();
+			ctx.setCache(cache);
+
+			VictimsDBInterface db = VictimsDB.db();
+			ctx.setDatabase(db);
+
+			// validate
+			ctx.getSettings().validate();
+			ctx.getSettings().show(ctx.getLog());
+
+		} catch (VictimsException e) {
+			log(e, LogLevel.DEBUG.getLevel());
+			throw new VictimsBuildException(e.getMessage());
+		}
 	}
 
 	/**
@@ -107,47 +125,43 @@ public class VictimsTask extends Task {
 	 * Creates and synchronises database then checks supplied dependencies
 	 * against the vulnerability database.
 	 */
-	public void execute(ExecutionContext ctx) throws BuildException {
+	public void execute() throws BuildException {
 		VictimsResultCache cache = ctx.getCache();
 		int cores = Runtime.getRuntime().availableProcessors();
 		ExecutorService executor = null;
 		List<Future<FileStub>> jobs = null;
-
 		LogOutputResource log = ctx.getLog();
-		setupConfig();
 
 		try {
 			// Sync database
 			updateDatabase(ctx);
-
 			// Concurrency, yay!
 			executor = Executors.newFixedThreadPool(cores);
 			jobs = new ArrayList<Future<FileStub>>();
 
 			// Find all files under supplied path
 			Path sources = createUnifiedSourcePath();
-			log.log("Scanning Files ");
+			log.log("Scanning Files:");
 			for (Resource r : sources) {
 				// Grab the file
 				FileResource fr = ResourceUtils.asFileResource(r
 						.as(FileProvider.class));
 				FileStub fs = new FileStub(fr.getFile());
 				String fsid = fs.getId();
-
 				// Check the cache
-				if (cache.exists(fs.getId())) {
+				if (cache.exists(fsid)) {
 					HashSet<String> cves = cache.get(fsid);
-					log.log("Cached: " + fsid, LogLevel.DEBUG.getLevel());
+					log.log("Cached: " + fsid);
 
-					/* need to alter vulndetected for this */
+					/* Report vulnerabilities */
 					if (!cves.isEmpty()) {
 						VulnerableDependencyException err = new VulnerableDependencyException(
 								fs, Settings.FINGERPRINT, cves);
 						log.log(err.getLocalizedMessage(),
 								LogLevel.INFO.getLevel());
-						if (err.isFatal(ctx))
-							;
-						throw new VictimsBuildException(err.getErrorMessage());
+						if (err.isFatal(ctx)){
+							throw new VictimsBuildException(err.getErrorMessage());
+						}
 					}
 					continue;
 				}
@@ -171,15 +185,14 @@ public class VictimsTask extends Task {
 					log.log(ie.getMessage(), LogLevel.DEBUG.getLevel());
 				} catch (ExecutionException e) {
 					// Need an exception that is not a build exception
-					log(e, LogLevel.DEBUG.getLevel());
+					log.log(e.getMessage());
+					e.printStackTrace();
 					Throwable cause = e.getCause();
 					if (cause instanceof VulnerableDependencyException) {
-						VulnerableDependencyException vbe 
-							= (VulnerableDependencyException) cause;
+						VulnerableDependencyException vbe = (VulnerableDependencyException) cause;
 						cache.add(vbe.getId(), vbe.getVulnerabilites());
 						log.log(vbe.getMessage(), LogLevel.INFO.getLevel());
 
-						// Check for fatal mode
 						if (vbe.isFatal(ctx))
 							throw new VictimsBuildException(
 									vbe.getErrorMessage());
@@ -192,15 +205,13 @@ public class VictimsTask extends Task {
 		} catch (VictimsException ve) {
 			log(ve, LogLevel.DEBUG.getLevel());
 			throw new VictimsBuildException(ve.getMessage());
-			
+
 		} finally {
-			if (executor != null){
+			if (executor != null) {
 				executor.shutdown();
 			}
 		}
 	}
-
-
 
 	/**
 	 * Updates the database according to the given configuration
@@ -248,67 +259,14 @@ public class VictimsTask extends Task {
 	}
 
 	/**
-	 * Set up VictimsConfig key.
-	 */
-	public ExecutionContext setupConfig() {
-
-		ctx.setLog(new LogOutputResource(this));
-		ctx.setSettings(new Settings());
-
-		// Only need to query using one hashing mechanism
-		System.setProperty(VictimsConfig.Key.ALGORITHMS, "SHA512");
-
-		/* Create results cache & victims DB */
-		try {
-			VictimsResultCache cache = new VictimsResultCache();
-			ctx.setCache(cache);
-
-			VictimsDBInterface db = VictimsDB.db();
-			ctx.setDatabase(db);
-
-			// validate
-			ctx.getSettings().validate();
-			ctx.getSettings().show(ctx.getLog());
-
-		} catch (VictimsException e) {
-			log(e, LogLevel.DEBUG.getLevel());
-			throw new VictimsBuildException(e.getMessage());
-		}
-
-		return ctx;
-	}
-
-	/**
-	 * Set the reporting mode
-	 * 
-	 * @param mode
-	 *            value of warning, fatal, or disabled
-	 */
-	public void setMode(String mode) {
-		if (mode.equalsIgnoreCase("warning") || mode.equalsIgnoreCase("fatal")
-				|| mode.equalsIgnoreCase("disabled")) {
-			currentMode = mode;
-		}
-	}
-
-	/**
-	 * Get the current mode
-	 * 
-	 * @return Current reporting mode
-	 */
-	public String getMode() {
-		return currentMode;
-	}
-
-	/**
 	 * Setter for jar attribute.
 	 * 
 	 * @param jar
 	 *            a .jar archive
 	 */
-	/*
-	 * public void setJar(final File jar) { this.jar = jar; }
-	 */
+	public void setJar(final File jar) {
+		this.jar = jar;
+	}
 
 	/**
 	 * Set base URL of database. Default is http://victi.ms
@@ -327,7 +285,7 @@ public class VictimsTask extends Task {
 	 * @param entrypoint
 	 *            entry point path
 	 */
-	public void entryPoint(String entrypoint) {
+	public void setEntryPoint(String entrypoint) {
 		System.setProperty(VictimsConfig.Key.ENTRY, entryPoint);
 		ctx.getSettings().set(VictimsConfig.Key.URI, entryPoint);
 	}
@@ -402,11 +360,23 @@ public class VictimsTask extends Task {
 		}
 	}
 
+	/**
+	 * Set the database username
+	 * 
+	 * @param jdbcUser
+	 *            username
+	 */
 	public void setJdbcUser(String jdbcUser) {
 		System.setProperty(VictimsConfig.Key.DB_USER, jdbcUser);
 		ctx.getSettings().set(VictimsConfig.Key.DB_USER, jdbcUser);
 	}
 
+	/**
+	 * Set the database user password
+	 * 
+	 * @param jdbcPass
+	 *            password
+	 */
 	public void setJdbcPass(String jdbcPass) {
 		System.setProperty(VictimsConfig.Key.DB_PASS, jdbcPass);
 		ctx.getSettings().set(VictimsConfig.Key.DB_PASS, "(not shown)");
@@ -439,9 +409,18 @@ public class VictimsTask extends Task {
 	 * 
 	 * @return a single .jar file
 	 */
-	/*
-	 * public File getJar() { return jar; }
+	public File getJar() {
+		return jar;
+	}
+
+	/**
+	 * Retrieve Execution context for this build
+	 * 
+	 * @return context
 	 */
+	public ExecutionContext getCtx() {
+		return ctx;
+	}
 
 	/**
 	 * Getter for path
@@ -459,6 +438,15 @@ public class VictimsTask extends Task {
 	 */
 	public String getbaseUrl() {
 		return ctx.getSettings().get(VictimsConfig.Key.URI);
+	}
+
+	/**
+	 * Get the REST entry point
+	 * 
+	 * @return entry point URL
+	 */
+	public String getEntryPoint() {
+		return ctx.getSettings().get(VictimsConfig.Key.ENTRY);
 	}
 
 	/**
@@ -497,10 +485,20 @@ public class VictimsTask extends Task {
 		return ctx.getSettings().get(VictimsConfig.Key.DB_URL);
 	}
 
+	/**
+	 * Get database username
+	 * 
+	 * @return username
+	 */
 	public String getJdbcUser() {
 		return ctx.getSettings().get(VictimsConfig.Key.DB_USER);
 	}
 
+	/**
+	 * Get database user password
+	 * 
+	 * @return password
+	 */
 	public String getJdbcPass() {
 		return ctx.getSettings().get(VictimsConfig.Key.DB_PASS);
 	}
@@ -511,7 +509,7 @@ public class VictimsTask extends Task {
 	 * @return update mode
 	 */
 	public String getUpdates() {
-		return updates;
+		return ctx.getSettings().get(Settings.UPDATE_DATABASE);
 	}
 
 	/**
@@ -533,13 +531,18 @@ public class VictimsTask extends Task {
 	protected Vector<FileSet> createUnifiedSources() {
 		@SuppressWarnings("unchecked")
 		Vector<FileSet> sources = (Vector<FileSet>) filesets.clone();
-		/*
-		 * if (jar != null) { // we create a fileset with the source file. //
-		 * this lets us combine our logic for handling output directories, //
-		 * mapping etc. FileSet sourceJar = new FileSet();
-		 * sourceJar.setProject(getProject()); sourceJar.setFile(jar);
-		 * sourceJar.setDir(jar.getParentFile()); sources.add(sourceJar); }
-		 */
+
+		if (jar != null) { 
+			// we create a fileset with the source file.
+			// this lets us combine our logic for handling output directories,
+			// mapping etc.
+			FileSet sourceJar = new FileSet();
+			sourceJar.setProject(getProject());
+			sourceJar.setFile(jar);
+			sourceJar.setDir(jar.getParentFile());
+			sources.add(sourceJar);
+		}
+
 		return sources;
 	}
 

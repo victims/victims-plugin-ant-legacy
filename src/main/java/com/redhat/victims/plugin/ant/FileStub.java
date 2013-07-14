@@ -36,7 +36,7 @@ public class FileStub {
 	 */
 	public FileStub(File file) throws VictimsException {
 		try {
-			filename = file.getCanonicalPath();
+			filename = file.getName();
 			id = hashFile(file, filename);
 			this.file = file;
 			meta = getMeta(file);
