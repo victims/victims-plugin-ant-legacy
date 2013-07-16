@@ -157,8 +157,7 @@ public class VictimsTask extends Task {
 					if (!cves.isEmpty()) {
 						VulnerableDependencyException err = new VulnerableDependencyException(
 								fs, Settings.FINGERPRINT, cves);
-						log.log(err.getLocalizedMessage(),
-								LogLevel.INFO.getLevel());
+						log.log(err.getLogMessage(), LogLevel.INFO.getLevel());
 						if (err.isFatal(ctx)){
 							throw new VictimsBuildException(err.getErrorMessage());
 						}
@@ -184,14 +183,13 @@ public class VictimsTask extends Task {
 				} catch (InterruptedException ie) {
 					log.log(ie.getMessage(), LogLevel.DEBUG.getLevel());
 				} catch (ExecutionException e) {
-					// Need an exception that is not a build exception
-					log.log(e.getMessage());
-					e.printStackTrace();
+
 					Throwable cause = e.getCause();
 					if (cause instanceof VulnerableDependencyException) {
 						VulnerableDependencyException vbe = (VulnerableDependencyException) cause;
 						cache.add(vbe.getId(), vbe.getVulnerabilites());
-						log.log(vbe.getMessage(), LogLevel.INFO.getLevel());
+						
+						log.log(vbe.getLogMessage(), LogLevel.INFO.getLevel());
 
 						if (vbe.isFatal(ctx))
 							throw new VictimsBuildException(
