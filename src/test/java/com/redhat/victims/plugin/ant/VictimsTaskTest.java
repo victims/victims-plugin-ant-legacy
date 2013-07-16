@@ -35,7 +35,6 @@ public class VictimsTaskTest {
 		Path path = new Path(project, "/home/kurt/ant/apache-ant-1.9.0/lib/*");
 		Path path2 = path.createPath();
 		vt.setPath(path2);
-		vt.execute();
 	}
 
 	/**
