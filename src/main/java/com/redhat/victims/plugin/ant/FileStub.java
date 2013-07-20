@@ -31,6 +31,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
+import java.util.jar.Attributes;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.MessageDigestAlgorithms;
@@ -40,27 +41,34 @@ import com.redhat.victims.fingerprint.Metadata;
 
 /**
  * Holds dependency metadata for caching
+ * 
  * @author kurt
  */
 public class FileStub {
 	private Date cached;
 	private String filename;
 	private String id;
+	private String artifactId;
 	private File file;
 	private Metadata meta;
 
 	/**
-	 * Holds metadata for file, if unreachable file we can't
-	 * cache it.
-	 * @param file file to cache
-	 * @throws VictimsException if can't be hashed
+	 * Holds metadata for file, if unreachable file we can't cache it.
+	 * 
+	 * @param file
+	 *            file to cache
+	 * @throws VictimsException
+	 *             if can't be hashed
 	 */
 	public FileStub(File file) throws VictimsException {
 		try {
 			filename = file.getName();
+			if (!filename.endsWith(".jar"))
+				throw new VictimsException("Non jar file passed to scanner");
 			id = hashFile(file, filename);
 			this.file = file;
 			meta = getMeta(file);
+			artifactId = createArtifactId(getFileName());
 		} catch (IOException io) {
 			filename = null;
 			id = null;
@@ -70,8 +78,11 @@ public class FileStub {
 
 	/**
 	 * Hash the file to get a "unique" key for caching
-	 * @param file file to hash
-	 * @param name canonical file name
+	 * 
+	 * @param file
+	 *            file to hash
+	 * @param name
+	 *            canonical file name
 	 * @return name + md5 hash of file
 	 * @throws VictimsException
 	 */
@@ -103,47 +114,71 @@ public class FileStub {
 		}
 	}
 
-    /**
-     * Creates metadata from a given jar file.
-     * 
-     * @param jar
-     *            file containing a manifest
-     * @return Metadata containing extracted information from manifest file.
-     * @throws FileNotFoundException
-     * @throws IOException
-     */
-    public static Metadata getMeta(File jar) throws FileNotFoundException,
-            IOException {
-        if (!jar.getAbsolutePath().endsWith(".jar"))
-            return null;
-        JarInputStream jis = new JarInputStream(new FileInputStream(jar));
-        Manifest mf = jis.getManifest();
-        jis.close();
-        if (mf != null) {
-            return Metadata.fromManifest(mf);
-        }
-        return null;
-    }
-    
-    public String getArtifactId(){
-    	return meta.get("artifactId");
-    }
-    
-    public String getVersion(){
-    	return meta.get("version");
-    }
+	/**
+	 * Creates metadata from a given jar file.
+	 * 
+	 * @param jar
+	 *            file containing a manifest
+	 * @return Metadata containing extracted information from manifest file.
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	public static Metadata getMeta(File jar) throws FileNotFoundException,
+			IOException {
+		if (!jar.getAbsolutePath().endsWith(".jar"))
+			return null;
+		JarInputStream jis = new JarInputStream(new FileInputStream(jar));
+		Manifest mf = jis.getManifest();
+		jis.close();
+		if (mf != null) {
+			return Metadata.fromManifest(mf);
+		}
+		return null;
+	}
+	
+	public String createArtifactId(String name){
+		// Strip version
+		name = name.split(getVersion())[0];
+		// Strip non alphanumeric characters
+		return name.replaceAll("[^\\p{L}\\p{Nd}]$", "");
+	}
+	/**
+	 * Creates an artifact ID for a java library.
+	 * Strips off version and any non alphanumeric characters
+	 * @return Name of library
+	 */
+	public String getArtifactId() {
+		return artifactId;
+	}
+
+	/**
+	 * @return Implementation title as defined in library manifest
+	 */
+	public String getTitle() {
+		return meta.get(Attributes.Name.IMPLEMENTATION_TITLE.toString());
+	}
+
+	/**
+	 * @return Implementation version as defined in library manifest
+	 */
+	public String getVersion() {
+		return meta.get(Attributes.Name.IMPLEMENTATION_VERSION.toString());
+	}
+
 	/**
 	 * @return File for this Stub
 	 */
-	public File getFile(){
+	public File getFile() {
 		return file;
 	}
+
 	/**
 	 * @return unique file identifier
 	 */
-	public String getId(){
+	public String getId() {
 		return id;
 	}
+
 	/**
 	 * @return Canonical file name
 	 */
@@ -158,6 +193,10 @@ public class FileStub {
 		return cached;
 	}
 
+	/**
+	 * Returns string representation of the FileStub in the form of
+	 * id: "filename + hash of file", file: "filename", created on: "date"
+	 */
 	public String toString() {
 		return String.format("id: %s, file: %s, created on: %s", id, filename,
 				cached.toString());
