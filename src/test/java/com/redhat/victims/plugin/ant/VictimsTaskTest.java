@@ -21,22 +21,27 @@ public class VictimsTaskTest {
 	VictimsTask vt = new VictimsTask();
 	Project project = new Project();
 
-	public void testScan() {
-
-	}
-
-	/**
-	 * Lazy way to run the program
-	 */
 	@Test
-	public void test() {
-
-		vt.init();
-		Path path = new Path(project, "/home/kurt/ant/apache-ant-1.9.0/lib/*");
-		Path path2 = path.createPath();
-		vt.setPath(path2);
+	public void testFileStub()
+	{
+		File jar = new File("testdata", "spring-2.5.6.jar");
+		File fakejar = new File("testdata", "fake-jar_test-1.1.5.jar");
+		try {
+			FileStub fs = new FileStub(jar);
+			assert(fs.getId().contains("spring-2.5.6.jar"));
+			assert(fs.getFile().equals(jar));
+			assert(fs.getArtifactId().equals("spring"));
+			assert(fs.getTitle().equals("Spring Framework"));
+			
+			/* Test artifact id creation */
+			FileStub fj = new FileStub(fakejar);
+			assert(fj.getArtifactId().equals("fake-jar_test"));
+			assert(fj.getVersion().equals("1.1.5"));
+			
+		} catch (VictimsException e) {
+			fail("ERROR: " + e.getMessage());
+		}
 	}
-
 	/**
 	 * Checks correct exception is thrown
 	 */
@@ -86,8 +91,9 @@ public class VictimsTaskTest {
 					"Test data unavailable: spring-2.5.6.jar");
 		}
 		try {
-			Metadata meta = VictimsCommand.getMeta(jar);
+			Metadata meta = FileStub.getMeta(jar);
 			HashMap<String, String> gav = new HashMap<String, String>();
+			//fix naming
 			if (meta.containsKey("Manifest-Version"))
 				gav.put("groupId", meta.get("Manifest-Version"));
 			if (meta.containsKey("Implementation-Version"))
@@ -99,10 +105,16 @@ public class VictimsTaskTest {
 			assertTrue(gav.get("artifactId").equals("2.5.6"));
 			assertTrue(gav.get("version").equals("Spring Framework"));
 		} catch (FileNotFoundException fn) {
-
+			//silently catch
 		} catch (IOException ie) {
-
+			//silently catch
 		}
 	}
+	
+/*	@Test(expected=VulnerableDependencyException.class)
+	public void testVictimsCommand(){
+		ExecutionContext ctx = new ExecutionContext();
+		ctx.setDatabase(VictimsDB.db());
+	} Needs to be in seperate class	*/
 
 }
