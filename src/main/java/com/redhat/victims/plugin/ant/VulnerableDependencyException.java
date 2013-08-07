@@ -46,8 +46,12 @@ public class VulnerableDependencyException extends VictimsException {
 				fs.getArtifactId(), fs.getVersion(), cves.toString());
 
 		StringBuilder errMsg = new StringBuilder();
-		errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)))
-				.append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY, cves));
+	    errMsg.append(TextUI.box(TextUI.fmt(Resources.ERR_VULNERABLE_HEADING)));
+	    errMsg.append(TextUI.fmt(Resources.ERR_VULNERABLE_DEPENDENCY));
+	    for (String cve : cves){ 
+	      errMsg.append(TextUI.fmt(Resources.ERR_VULNERABLE_CVE_URL, cve));
+	      errMsg.append("\n");
+	    }
 
 		this.errorMessage = errMsg.toString();
 		this.cves = cves;
