@@ -64,8 +64,6 @@ public class FileStub {
 	public FileStub(File file) throws VictimsException {
 		try {
 			filename = file.getName();
-			if (!filename.endsWith(".jar"))
-				throw new VictimsException("Non jar file passed to scanner");
 			id = hashFile(file, filename);
 			this.file = file;
 			meta = getMeta(file);
@@ -155,7 +153,11 @@ public class FileStub {
 	 */
 	public String createArtifactId(String name) {
 		// Strip version
-		name = name.split(getVersion())[0];
+		if (getVersion() == null){
+			name = filename;
+		} else {
+			name = name.split(getVersion())[0];
+		}
 		// Strip non alphanumeric characters
 		return name.replaceAll("[^\\p{L}\\p{Nd}]$", "");
 	}
