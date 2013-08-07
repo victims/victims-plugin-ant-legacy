@@ -49,7 +49,7 @@ public class VictimsCommand implements Callable<FileStub> {
 			
 			for (VictimsRecord vr : VictimsScanner.getRecords(dependency)) {
 				HashSet<String> cves = db.getVulnerabilities(vr);
-				if (!cves.isEmpty()) {
+				if (! cves.isEmpty()) {
 					throw new VulnerableDependencyException(jar,
 							Settings.FINGERPRINT, cves);
 				}
