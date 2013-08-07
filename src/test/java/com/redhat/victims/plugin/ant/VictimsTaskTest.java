@@ -4,12 +4,10 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.HashMap;
 
 import com.redhat.victims.VictimsException;
 
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Path;
 import org.junit.Test;
@@ -105,8 +103,6 @@ public class VictimsTaskTest {
 			assertTrue(gav.get("artifactId").equals("2.5.6"));
 			assertTrue(gav.get("version").equals("Spring Framework"));
 		} catch (FileNotFoundException fn) {
-			//silently catch
-		} catch (IOException ie) {
 			//silently catch
 		}
 	}
