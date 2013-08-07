@@ -27,6 +27,10 @@ import com.redhat.victims.VictimsException;
 
 public class VulnerableDependencyException extends VictimsException {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 5211188152109889778L;
 	private String infoMessage;
 	private String errorMessage;
 	private String artifact;
