@@ -1,0 +1,63 @@
+Victims-Plugin-Ant
+
+What:
+
+Victims-plugin-ant is an Ant Task which can be defined and utilised by the Ant build tool.
+The Task provides the functionality to scan a Java projects dependencies against a database of publicly 
+known vulnerabilities. The canonical version of the database is hosted at https://victi.ms and is maintained by
+Red Hat Security teams. It also allows for other vulnerability databases to be compared against utilising
+the victims java library. The methods of comparing java libraries to vulnerabilities is by fingerprinting of
+class & jar files or matching jar manifest file information against records in the database.
+
+How:
+
+Utilising the victims java library the program creates a local copy of the database which is then synchronised
+automatically/daily or not at all based on settings defined when executing the task. Please note that the
+first execution of the task will take some time as it synchronises the whole Victims database. 
+The files to scan are passed to the Task via a path element parameter. The most effective way of doing this
+is via a fileset based on a directory and including all .jar files. 
+For example, you would point the fileset at a directory containing all your libraries and include all .jar files.
+
+	<path>
+		<fileset dir="lib" includes="**/*.jar" />
+	</path>
+	
+I recommend using a tool such as Apache Ivy in conjunction with Ant to resolve dependencies (in a nice way).
+You can download Apache Ant at: ant.apache.org
+			 And Apache Ivy at: ant.apache.org/ivy
+
+The Task will utilise the caching capabilities of Victims-lib-java to make repeated builds more efficient. It
+also has a concurrent implementation to make large builds with many dependencies quicker.
+
+Usage:
+
+In your build.xml file you must have a target to define the task and a target to utilise the task.
+Below is a sample of how to define the task and then how to scan using the defined task. The user guide
+will have a more in depth document on usage for more complex projects.
+
+  <?xml version="1.0" encoding="ISO-8859-1"?>
+      <project name="ProjectName" basedir="." default="scan">
+          <!-- 
+            This defines the task utilising the victims-plugin-ant jar.
+            Make sure the victims-plugin-ant.jar library is available in the classpath
+          -->
+          <target name="define" description="Define the task">
+              <taskdef name="victims" classname="com.redhat.victims.plugin.ant.VictimsTask">
+                  <classpath>
+                      <fileset dir="lib" includes="**/*.jar"/>
+                  </classpath>
+              </taskdef>
+          </target>
+          
+          <!--
+            This target executes the victims-plugin-ant task. Path is the only
+            required parameter. For other possible parameters see below.
+           -->
+          <target name="scan" depends="define" description="Run the victims scan">
+              <victims>
+                  <path>
+                      <fileset dir="lib" includes="**/*.jar"/>
+                  </path>
+              </victims>
+          </target>
+      </project>
