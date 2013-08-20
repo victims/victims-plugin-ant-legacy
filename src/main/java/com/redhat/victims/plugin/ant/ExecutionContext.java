@@ -113,7 +113,8 @@ public final class ExecutionContext {
 	 * @return True when the mode is in fatal mode.
 	 */
 	public boolean inFatalMode(String mode) {
-		return mode.equalsIgnoreCase(Settings.MODE_FATAL);
+		String val = settings.get(mode);
+		return val != null && val.equalsIgnoreCase(Settings.MODE_FATAL);
 	}
 
 	/**

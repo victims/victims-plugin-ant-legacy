@@ -35,6 +35,7 @@ import java.util.jar.Attributes;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.MessageDigestAlgorithms;
+import org.apache.commons.io.IOUtils;
 
 import com.redhat.victims.VictimsException;
 import com.redhat.victims.fingerprint.Metadata;
@@ -63,8 +64,6 @@ public class FileStub {
 	public FileStub(File file) throws VictimsException {
 		try {
 			filename = file.getName();
-			if (!filename.endsWith(".jar"))
-				throw new VictimsException("Non jar file passed to scanner");
 			id = hashFile(file, filename);
 			this.file = file;
 			meta = getMeta(file);
@@ -88,8 +87,9 @@ public class FileStub {
 	 */
 	private static String hashFile(File file, String name)
 			throws VictimsException {
+		InputStream fis = null;
 		try {
-			InputStream fis = new FileInputStream(file);
+			fis = new FileInputStream(file);
 			byte[] buffer = new byte[1024];
 
 			MessageDigest mda = MessageDigest
@@ -102,7 +102,6 @@ public class FileStub {
 				}
 			} while (numRead != -1);
 
-			fis.close();
 			return name + Hex.encodeHexString(mda.digest());
 
 		} catch (NoSuchAlgorithmException e) {
@@ -111,6 +110,8 @@ public class FileStub {
 		} catch (IOException io) {
 			throw new VictimsException(String.format("Could not open file: %s",
 					name), io);
+		} finally {
+			IOUtils.closeQuietly(fis);
 		}
 	}
 
@@ -121,31 +122,48 @@ public class FileStub {
 	 *            file containing a manifest
 	 * @return Metadata containing extracted information from manifest file.
 	 * @throws FileNotFoundException
-	 * @throws IOException
+	 * @throws VictimsException
 	 */
 	public static Metadata getMeta(File jar) throws FileNotFoundException,
-			IOException {
+			VictimsException {
 		if (!jar.getAbsolutePath().endsWith(".jar"))
 			return null;
-		JarInputStream jis = new JarInputStream(new FileInputStream(jar));
-		Manifest mf = jis.getManifest();
-		jis.close();
-		if (mf != null) {
-			return Metadata.fromManifest(mf);
+		JarInputStream jis = null;
+		try {
+			jis = new JarInputStream(new FileInputStream(jar));
+			Manifest mf = jis.getManifest();
+			jis.close();
+			if (mf != null)
+				return Metadata.fromManifest(mf);
+		} catch (IOException io) {
+			throw new VictimsException(String.format("Could not open file: %s",
+					jar.getName()), io);
+		} finally {
+			IOUtils.closeQuietly(jis);
 		}
 		return null;
 	}
-	
-	public String createArtifactId(String name){
+
+	/**
+	 * Creates an artifact ID for a java library. Strips off version and any non
+	 * alphanumeric characters
+	 * 
+	 * @param name
+	 * @return
+	 */
+	public String createArtifactId(String name) {
 		// Strip version
-		name = name.split(getVersion())[0];
+		if (getVersion() == null){
+			name = filename;
+		} else {
+			name = name.split(getVersion())[0];
+		}
 		// Strip non alphanumeric characters
 		return name.replaceAll("[^\\p{L}\\p{Nd}]$", "");
 	}
+
 	/**
-	 * Creates an artifact ID for a java library.
-	 * Strips off version and any non alphanumeric characters
-	 * @return Name of library
+	 * @return Name of library hopefully in the form of a maven artifact id
 	 */
 	public String getArtifactId() {
 		return artifactId;
@@ -194,8 +212,8 @@ public class FileStub {
 	}
 
 	/**
-	 * Returns string representation of the FileStub in the form of
-	 * id: "filename + hash of file", file: "filename", created on: "date"
+	 * Returns string representation of the FileStub in the form of id:
+	 * "filename + hash of file", file: "filename", created on: "date"
 	 */
 	public String toString() {
 		return String.format("id: %s, file: %s, created on: %s", id, filename,
