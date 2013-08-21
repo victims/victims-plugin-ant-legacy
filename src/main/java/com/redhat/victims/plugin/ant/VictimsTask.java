@@ -191,9 +191,10 @@ public class VictimsTask extends Task {
 						
 						log.log(vbe.getLogMessage(), LogLevel.INFO.getLevel());
 
-						if (vbe.isFatal(ctx))
+						if (vbe.isFatal(ctx)){
 							throw new VictimsBuildException(
 									vbe.getErrorMessage());
+						}
 					} else {
 						throw new VictimsBuildException(e.getCause()
 								.getMessage());

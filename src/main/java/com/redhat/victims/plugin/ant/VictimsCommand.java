@@ -23,13 +23,11 @@ package com.redhat.victims.plugin.ant;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.jar.Attributes;
 import java.util.concurrent.Callable;
 
 import com.redhat.victims.VictimsRecord;
 import com.redhat.victims.VictimsScanner;
 import com.redhat.victims.database.VictimsDBInterface;
-import com.redhat.victims.fingerprint.Metadata;
 
 public class VictimsCommand implements Callable<FileStub> {
 	private FileStub jar;
@@ -41,7 +39,6 @@ public class VictimsCommand implements Callable<FileStub> {
 	}
 
 	public FileStub call() throws Exception {
-		System.out.println(jar.getFileName());
 		assert(ctx != null);
 		ctx.getLog().log("Scanning: " + jar.getFileName());
 		VictimsDBInterface db = ctx.getDatabase();
@@ -52,7 +49,7 @@ public class VictimsCommand implements Callable<FileStub> {
 			
 			for (VictimsRecord vr : VictimsScanner.getRecords(dependency)) {
 				HashSet<String> cves = db.getVulnerabilities(vr);
-				if (!cves.isEmpty()) {
+				if (! cves.isEmpty()) {
 					throw new VulnerableDependencyException(jar,
 							Settings.FINGERPRINT, cves);
 				}

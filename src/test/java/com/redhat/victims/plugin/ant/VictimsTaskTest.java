@@ -4,12 +4,10 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.HashMap;
 
 import com.redhat.victims.VictimsException;
 
-import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.types.Path;
 import org.junit.Test;
@@ -28,15 +26,15 @@ public class VictimsTaskTest {
 		File fakejar = new File("testdata", "fake-jar_test-1.1.5.jar");
 		try {
 			FileStub fs = new FileStub(jar);
-			assert(fs.getId().contains("spring-2.5.6.jar"));
-			assert(fs.getFile().equals(jar));
-			assert(fs.getArtifactId().equals("spring"));
-			assert(fs.getTitle().equals("Spring Framework"));
+			assertTrue(fs.getId().contains("spring-2.5.6.jar"));
+			assertTrue(fs.getFile().equals(jar));
+			assertTrue(fs.getArtifactId().equals("spring"));
+			assertTrue(fs.getTitle().equals("Spring Framework"));
 			
 			/* Test artifact id creation */
 			FileStub fj = new FileStub(fakejar);
-			assert(fj.getArtifactId().equals("fake-jar_test"));
-			assert(fj.getVersion().equals("1.1.5"));
+			assertTrue(fj.getArtifactId().equals("fake-jar_test"));
+			assertTrue(fj.getVersion().equals("1.1.5"));
 			
 		} catch (VictimsException e) {
 			fail("ERROR: " + e.getMessage());
@@ -59,7 +57,6 @@ public class VictimsTaskTest {
 	@Test
 	public void testInit() {
 		vt.init();
-		System.out.println(vt.getbaseUrl());
 		vt.setProject(project);
 		Path path = new Path(project, "");
 		Path path2 = path.createPath();
@@ -105,8 +102,6 @@ public class VictimsTaskTest {
 			assertTrue(gav.get("artifactId").equals("2.5.6"));
 			assertTrue(gav.get("version").equals("Spring Framework"));
 		} catch (FileNotFoundException fn) {
-			//silently catch
-		} catch (IOException ie) {
 			//silently catch
 		}
 	}
