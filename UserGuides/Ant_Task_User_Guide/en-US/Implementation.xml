@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Ant_Task_User_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Ant_Task_User_Guide-Implementation">
+	<title>Implementation</title>
+	<para>
+		Utilising the Victims Java library the program creates a local copy of the database which is then synchronised automatically/daily or not at all based on settings defined when executing the task. Please note that the first execution of the task will take some time as it synchronises the whole Victims database.  The files to scan are passed to the Task via a path element parameter. The most effective way of doing this is via a fileset based on a directory and including all .jar files.
+	</para>
+	<para>
+	For example, you would point the fileset at a directory containing all your libraries and include all .jar files.
+<programlisting language="XML"><![CDATA[<path>
+	<fileset dir="lib" includes="**/*.jar" />
+</path>]]></programlisting>
+	</para>
+	<para>
+		Apache Ivy can be used in conjunction with Ant to resolve dependencies in a user friendly manner.
+		<simplelist type='horiz' columns='2'>
+			<member>You can download Apache Ant at:</member><member>ant.apache.org</member>
+			<member>And Apache Ivy at:</member><member>ant.apache.org/ivy</member>
+		</simplelist>
+	The Task will utilise the caching capabilities of Victims-lib-java to make repeated builds more efficient. It also has a concurrent implementation to make large builds with many dependencies quicker.
+	</para>
+</chapter>
+
+

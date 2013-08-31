@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE bookinfo PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Ant_Task_User_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<bookinfo id="book-Ant_Task_User_Guide-Ant_Task_User_Guide">
+	<title>Ant Task User Guide</title>
+	<subtitle></subtitle>
+	<productname>Victi.ms</productname>
+	<productnumber></productnumber>
+	<edition>1.0</edition>
+	<pubsnumber></pubsnumber>
+	<abstract>
+		<para>
+			This Ant Task provides the functionality to scan a Java projects dependencies against a database of publicly known vulnerabilities. The canonical version of the database is hosted at <ulink url='https://victi.ms'>https://victi.ms</ulink> and is maintained by Red Hat security teams.
+		</para>
+	</abstract>
+	<!--
+	<corpauthor>
+		<inlinemediaobject>
+			<imageobject>
+				<imagedata fileref="Common_Content/images/title_logo.svg" format="SVG" />
+			</imageobject>
+		</inlinemediaobject>
+	</corpauthor>
+	!-->
+	<!--
+	<xi:include href="Common_Content/Legal_Notice.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="Author_Group.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	!-->
+</bookinfo>
+

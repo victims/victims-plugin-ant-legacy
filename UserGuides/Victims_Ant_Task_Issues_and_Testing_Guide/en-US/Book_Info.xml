@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE bookinfo PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Victims_Ant_Task_Issues_and_Testing_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<bookinfo id="book-Victims_Ant_Task_Issues_and_Testing_Guide-Victims_Ant_Task_Issues_and_Testing_Guide">
+	<title>Victims Ant Task Issues and Testing Guide</title>
+	<subtitle></subtitle>
+	<productname></productname>
+	<productnumber></productnumber>
+	<edition>1.0</edition>
+	<pubsnumber></pubsnumber>
+	<abstract>
+		<para>
+			This guide goes over known issues and testing of the Victims Ant Task.
+		</para>
+	</abstract>
+</bookinfo>
+
