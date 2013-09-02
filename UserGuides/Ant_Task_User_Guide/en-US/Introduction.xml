@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "Ant_Task_User_Guide.ent">
+%BOOK_ENTITIES;
+]>
+<chapter id="chap-Ant_Task_User_Guide-Introduction">
+	<title>Introduction</title>
+	<para>
+			Victims-plugin-ant is an Ant Task which can be defined and utilised by the Ant build tool. The Task provides the functionality to scan a Java projects dependencies against a database of publicly known vulnerabilities. The canonical version of the database is hosted at https://victi.ms and is maintained by Red Hat Security teams. It also allows for other vulnerability databases to be compared against utilising the victims java library. The methods of comparing java libraries to vulnerabilities is by fingerprinting of class and jar files or matching jar manifest file information against records in the database.
+		</para>
+</chapter>
+
