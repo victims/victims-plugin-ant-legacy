@@ -85,7 +85,7 @@ default : fatal
 
 Allows the configuration of the synchronization mechanism. In automatic mode new entries in the victims database are pulled from the victims-web instance during each build. In daily mode new entries are pulled from the victims-web instance only once per day. The synchronization mechanism may be disabled and processed manually for closed build environments.
 
-allowed : auto, offline TODO: daily
+allowed : auto, offline, daily
 default : auto
 
 ### jdbcDriver
