@@ -40,6 +40,33 @@ public class VictimsTaskTest {
 			fail("ERROR: " + e.getMessage());
 		}
 	}
+
+    @Test
+    public void testNoManifest() throws Exception {
+        // Check we handle .jars without manifests correctly.
+        File jar = new File("testdata", "no_manifest.jar");
+        try {
+            FileStub fs= new FileStub(jar);
+            assertTrue(fs.getVersion() == null);
+        } catch (VictimsException e){
+            fail(e.toString());
+        }
+    }
+
+    @Test
+    public void testWrongFileType() throws Exception {
+        // Check we safely ignore files that are not .jar compatible formats.
+        File jar = new File("testdata", "wrong_file.test");
+        try {
+            FileStub fs = new FileStub(jar);
+
+        } catch(VictimsException e){
+            e.printStackTrace();
+            fail(e.toString());
+        }
+    }
+
+
 	/**
 	 * Checks correct exception is thrown
 	 */

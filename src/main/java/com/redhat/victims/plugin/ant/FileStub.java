@@ -173,6 +173,9 @@ public class FileStub {
 	 * @return Implementation title as defined in library manifest
 	 */
 	public String getTitle() {
+        if (meta == null)
+            return null;
+
 		return meta.get(Attributes.Name.IMPLEMENTATION_TITLE.toString());
 	}
 
@@ -180,6 +183,9 @@ public class FileStub {
 	 * @return Implementation version as defined in library manifest
 	 */
 	public String getVersion() {
+        if (meta == null)
+            return null;
+
 		return meta.get(Attributes.Name.IMPLEMENTATION_VERSION.toString());
 	}
 
