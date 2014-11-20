@@ -107,13 +107,6 @@ public class VictimsTask extends Task {
 			VictimsResultCache cache = new VictimsResultCache();
 			ctx.setCache(cache);
 
-			VictimsDBInterface db = VictimsDB.db();
-			ctx.setDatabase(db);
-
-			// validate
-			ctx.getSettings().validate();
-			ctx.getSettings().show(ctx.getLog());
-
 		} catch (VictimsException e) {
 			log(e, LogLevel.DEBUG.getLevel());
 			throw new VictimsBuildException(e.getMessage());
@@ -133,6 +126,13 @@ public class VictimsTask extends Task {
 		LogOutputResource log = ctx.getLog();
 
 		try {
+			VictimsDBInterface db = VictimsDB.db();
+			ctx.setDatabase(db);
+
+			// validate
+			ctx.getSettings().validate();
+			ctx.getSettings().show(ctx.getLog());
+
 			// Sync database
 			updateDatabase(ctx);
 			// Concurrency, yay!
