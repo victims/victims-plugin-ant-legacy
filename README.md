@@ -1,4 +1,4 @@
-# victims-plugin-ant [![Build Status](https://travis-ci.org/victims/victims-plugin-ant.png)](https://travis-ci.org/victims/victims-plugin-ant)
+# victims-plugin-ant [![Build Status](https://travis-ci.org/victims/victims-plugin-ant-legacy.svg?branch=master)](https://travis-ci.org/victims/victims-plugin-ant-legacy)
 
 ## About
 
